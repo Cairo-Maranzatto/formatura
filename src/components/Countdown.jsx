@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 
+const TARGET_TIMESTAMP = new Date('2027-01-23T21:00:00').getTime();
+
 export default function Countdown() {
-  const target = new Date('2027-01-23T21:00:00').getTime();
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
     function update() {
       const now = new Date().getTime();
-      const diff = target - now;
+      const diff = TARGET_TIMESTAMP - now;
       if (diff <= 0) {
         setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
         return;

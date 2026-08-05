@@ -305,6 +305,30 @@ section {
   background-color: var(--primary-light);
 }
 
+.btn-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.total-box {
+  background-color: var(--background);
+  border: 1px solid var(--accent-light);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.total-box strong {
+  display: block;
+  color: var(--primary);
+  font-size: 1.25rem;
+}
+
+.form-error {
+  margin: -8px 0 16px;
+  color: #b3261e;
+  font-size: 0.95rem;
+}
+
 /* Info */
 .info {
   background-color: var(--surface);

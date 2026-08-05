@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const slides = [
   '/images/carrossel/LOH_4254.jpg',
@@ -15,23 +15,34 @@ const slides = [
 export default function Gallery() {
   const [current, setCurrent] = useState(0);
   const total = slides.length;
-  let autoPlay;
+  const autoPlayRef = useRef(null);
 
-  useEffect(() => {
-    autoPlay = setInterval(() => {
+  const stopAutoPlay = useCallback(() => {
+    if (autoPlayRef.current) {
+      clearInterval(autoPlayRef.current);
+    }
+  }, []);
+
+  const startAutoPlay = useCallback(() => {
+    stopAutoPlay();
+    autoPlayRef.current = setInterval(() => {
       setCurrent((prev) => (prev + 1) % total);
     }, 4000);
-    return () => clearInterval(autoPlay);
-  }, []);
+  }, [stopAutoPlay, total]);
+
+  useEffect(() => {
+    startAutoPlay();
+    return () => stopAutoPlay();
+  }, [startAutoPlay, stopAutoPlay]);
 
   const goTo = (index) => {
     setCurrent((index + total) % total);
   };
 
   const stopAndGo = (index) => {
-    clearInterval(autoPlay);
+    stopAutoPlay();
     goTo(index);
-    autoPlay = setInterval(() => goTo(current + 1), 4000);
+    startAutoPlay();
   };
 
   return (

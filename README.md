@@ -1,16 +1,43 @@
-# React + Vite
+# Landing Page Formatura (React + PagSeguro)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Este projeto contém a SPA da landing page e a API local para iniciar checkout no PagSeguro.
 
-Currently, two official plugins are available:
+## Pré-requisitos
+- Node.js 20+
+- Token de integração PagSeguro (Sandbox ou Produção)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Configuração
+1. Instale dependências:
+   - `npm install`
+2. Crie o arquivo `.env` na raiz de `landing-react` com base em `.env.example`.
+3. Preencha no `.env`:
+   - `PAGSEGURO_TOKEN`
+   - `PAGSEGURO_BASE_URL` (`https://sandbox.api.pagseguro.com` ou produção)
+   - `PAGSEGURO_REDIRECT_URL` (ex.: `http://localhost:5173/sucesso`)
+   - `PAGSEGURO_CONNECT_TOKEN_CHALLENGE` (opcional, para resposta fixa do endpoint de challenge)
 
-## React Compiler
+## Executar em desenvolvimento
+- `npm run dev`
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Esse comando sobe:
+- Frontend Vite em `http://localhost:5173`
+- API Express em `http://localhost:3000`
 
-## Expanding the Oxlint configuration
+## Endpoints da API
+- `GET /api/health`
+- `POST /api/checkout`
+- `POST /api/webhook/pagseguro`
+- `GET /api/pagseguro/connect-token-challenge`
+- `POST /api/pagseguro/connect-token-challenge`
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## URL para cadastrar no PagSeguro
+Para a tela de **Cadastrar URL** do Connect Token Challenge, use:
+
+- `https://formatura-seven.vercel.app/api/pagseguro/connect-token-challenge`
+
+## Build
+- `npm run build`
+
+## Observações
+- A API PagSeguro é chamada apenas no backend para proteger o token.
+- O formulário de RSVP já envia `nome`, `email`, `celular`, `cpf`, `qtdAdulto` e `qtdInfantil`.
