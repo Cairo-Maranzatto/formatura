@@ -30,6 +30,11 @@ Esse comando sobe:
 - `GET /api/pagseguro/connect-token-challenge`
 - `POST /api/pagseguro/connect-token-challenge`
 
+No deploy da Vercel, as rotas serverless estão em:
+- `api/checkout.js`
+- `api/webhook/pagseguro.js`
+- `api/pagseguro/connect-token-challenge.js`
+
 ## URL para cadastrar no PagSeguro
 Para a tela de **Cadastrar URL** do Connect Token Challenge, use:
 
