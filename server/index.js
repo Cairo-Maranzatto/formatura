@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import axios from 'axios';
+import { MercadoPagoConfig, Preference } from 'mercadopago';
 
 dotenv.config();
 
@@ -10,6 +10,19 @@ const port = Number(process.env.PORT || 3000);
 
 const ADULT_PRICE_CENTS = 92290;
 const CHILD_PRICE_CENTS = 46290;
+
+function normalizeIntegrationType(value) {
+  return String(value || 'web').toLowerCase() === 'mobile' ? 'mobile' : 'web';
+}
+
+function appendWebhookToken(url, token) {
+  if (!url || !token) {
+    return url;
+  }
+
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}token=${encodeURIComponent(token)}`;
+}
 
 app.use(cors());
 app.use(express.json());
@@ -27,61 +40,29 @@ function buildItems(adultQty, childQty) {
 
   if (adultQty > 0) {
     items.push({
-      reference_id: 'convite_adulto',
-      name: 'Convite Adulto - Formatura Medicina',
+      id: 'convite_adulto',
+      title: 'Convite Adulto - Formatura Medicina',
       quantity: adultQty,
-      unit_amount: ADULT_PRICE_CENTS,
+      unit_price: ADULT_PRICE_CENTS / 100,
+      currency_id: 'BRL',
     });
   }
 
   if (childQty > 0) {
     items.push({
-      reference_id: 'convite_infantil',
-      name: 'Convite Infantil - Formatura Medicina',
+      id: 'convite_infantil',
+      title: 'Convite Infantil - Formatura Medicina',
       quantity: childQty,
-      unit_amount: CHILD_PRICE_CENTS,
+      unit_price: CHILD_PRICE_CENTS / 100,
+      currency_id: 'BRL',
     });
   }
 
   return items;
 }
 
-function resolveChallengePayload(input) {
-  const challengeValue = input?.challenge || input?.token || input?.code || process.env.PAGSEGURO_CONNECT_TOKEN_CHALLENGE;
-
-  if (!challengeValue) {
-    return null;
-  }
-
-  return String(challengeValue);
-}
-
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
-});
-
-app.get('/api/pagseguro/connect-token-challenge', (req, res) => {
-  const challenge = resolveChallengePayload(req.query);
-
-  if (!challenge) {
-    return res.status(400).json({
-      error: 'Informe challenge/token/code na query ou configure PAGSEGURO_CONNECT_TOKEN_CHALLENGE no .env.',
-    });
-  }
-
-  return res.status(200).type('text/plain').send(challenge);
-});
-
-app.post('/api/pagseguro/connect-token-challenge', (req, res) => {
-  const challenge = resolveChallengePayload(req.body);
-
-  if (!challenge) {
-    return res.status(400).json({
-      error: 'Informe challenge/token/code no body ou configure PAGSEGURO_CONNECT_TOKEN_CHALLENGE no .env.',
-    });
-  }
-
-  return res.status(200).type('text/plain').send(challenge);
 });
 
 app.post('/api/checkout', async (req, res) => {
@@ -109,75 +90,153 @@ app.post('/api/checkout', async (req, res) => {
     return res.status(400).json({ error: 'Selecione ao menos um convite.' });
   }
 
-  const pagSeguroToken = process.env.PAGSEGURO_TOKEN;
-  const pagSeguroBaseUrl = process.env.PAGSEGURO_BASE_URL || 'https://sandbox.api.pagseguro.com';
-  const redirectUrl = process.env.PAGSEGURO_REDIRECT_URL;
+  const mercadoPagoToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+  const mercadoPagoBaseUrl = process.env.MERCADOPAGO_BASE_URL || 'https://api.mercadopago.com';
+  const successUrl = process.env.MERCADOPAGO_SUCCESS_URL || process.env.MERCADOPAGO_REDIRECT_URL;
+  const pendingUrl = process.env.MERCADOPAGO_PENDING_URL || successUrl;
+  const failureUrl = process.env.MERCADOPAGO_FAILURE_URL || successUrl;
+  const notificationUrl = process.env.MERCADOPAGO_NOTIFICATION_URL;
+  const statementDescriptor = process.env.MERCADOPAGO_STATEMENT_DESCRIPTOR;
+  const integrationType = normalizeIntegrationType(process.env.MERCADOPAGO_INTEGRATION_TYPE);
+  const webhookToken = process.env.MERCADOPAGO_WEBHOOK_TOKEN;
 
-  if (!pagSeguroToken) {
-    return res.status(500).json({ error: 'Token do PagSeguro não configurado no backend.' });
+  if (!mercadoPagoToken) {
+    return res.status(500).json({ error: 'Access token do Mercado Pago não configurado no backend.' });
   }
 
-  if (!redirectUrl) {
-    return res.status(500).json({ error: 'URL de redirecionamento não configurada.' });
+  if (!successUrl) {
+    return res.status(500).json({ error: 'URL de sucesso do checkout não configurada.' });
+  }
+
+  if (!['https://api.mercadopago.com', 'https://api.mercadopago.com/'].includes(mercadoPagoBaseUrl) && !mercadoPagoBaseUrl.includes('mercadopago')) {
+    return res.status(500).json({ error: 'MERCADOPAGO_BASE_URL inválida.' });
   }
 
   const cleanedCpf = String(cpf).replace(/\D/g, '');
-  const items = buildItems(adultQty, childQty);
+  const cleanedPhone = String(celular).replace(/\D/g, '');
   const referenceId = `PEDIDO-${Date.now()}`;
 
+  if (cleanedCpf.length !== 11) {
+    return res.status(400).json({ error: 'CPF inválido. Informe 11 dígitos.' });
+  }
+
+  if (cleanedPhone.length < 10) {
+    return res.status(400).json({ error: 'Celular inválido. Informe DDD + número.' });
+  }
+
   const payload = {
-    reference_id: referenceId,
-    customer: {
+    items: buildItems(adultQty, childQty),
+    payer: {
       name: nome,
       email,
-      tax_id: cleanedCpf,
-      phones: [
-        {
-          country: '55',
-          area: String(celular).replace(/\D/g, '').slice(0, 2) || '19',
-          number: String(celular).replace(/\D/g, '').slice(2) || '000000000',
-          type: 'MOBILE',
-        },
-      ],
+      identification: {
+        type: 'CPF',
+        number: cleanedCpf,
+      },
     },
-    items,
-    redirect_url: redirectUrl,
+    back_urls: {
+      success: successUrl,
+      pending: pendingUrl,
+      failure: failureUrl,
+    },
+    auto_return: 'approved',
+    external_reference: referenceId,
+    metadata: {
+      celular: cleanedPhone,
+      qtd_adulto: adultQty,
+      qtd_infantil: childQty,
+    },
+    payment_methods: {
+      excluded_payment_types: [
+        { id: 'ticket' },
+        { id: 'atm' },
+        { id: 'debit_card' }
+      ],
+      installments: 12,
+    },
   };
 
+  if (notificationUrl) {
+    payload.notification_url = appendWebhookToken(notificationUrl, webhookToken);
+  }
+
+  if (statementDescriptor) {
+    payload.statement_descriptor = statementDescriptor;
+  }
+
   try {
-    const response = await axios.post(`${pagSeguroBaseUrl}/checkouts`, payload, {
-      headers: {
-        Authorization: `Bearer ${pagSeguroToken}`,
-        'Content-Type': 'application/json',
+    const client = new MercadoPagoConfig({
+      accessToken: mercadoPagoToken,
+      options: {
+        timeout: 10000,
+        baseUrl: mercadoPagoBaseUrl,
       },
     });
+    const preference = new Preference(client);
+    const data = await preference.create({ body: payload });
 
-    const links = response.data?.links || [];
-    const checkoutLink = links.find((link) => String(link.rel).toUpperCase() === 'PAY');
+    const initPoint = data?.init_point || null;
+    const sandboxInitPoint = data?.sandbox_init_point || null;
+    const checkoutUrl = integrationType === 'mobile'
+      ? (sandboxInitPoint || initPoint)
+      : (initPoint || sandboxInitPoint);
 
-    if (!checkoutLink?.href) {
-      return res.status(502).json({ error: 'PagSeguro não retornou URL de checkout.' });
+    if (!checkoutUrl) {
+      return res.status(502).json({
+        error: 'Mercado Pago não retornou URL de checkout.',
+        details: data,
+      });
     }
 
     return res.json({
-      checkoutUrl: checkoutLink.href,
+      checkoutUrl,
       referenceId,
+      preferenceId: data?.id,
+      integrationType,
+      initPoint,
+      sandboxInitPoint,
     });
   } catch (error) {
-    const apiError = error.response?.data || error.message;
     return res.status(502).json({
-      error: 'Falha ao criar checkout no PagSeguro.',
-      details: apiError,
+      error: 'Falha ao criar checkout no Mercado Pago.',
+      details: error?.cause || (error instanceof Error ? error.message : 'Erro desconhecido'),
     });
   }
 });
 
-app.post('/api/webhook/pagseguro', (req, res) => {
+app.post('/api/webhook/mercadopago', async (req, res) => {
+  const webhookToken = process.env.MERCADOPAGO_WEBHOOK_TOKEN;
+  const token = req.query?.token;
+
+  if (webhookToken && token !== webhookToken) {
+    console.warn('Webhook recebido com token inválido no backend local.');
+    return res.status(401).json({ error: 'Token de webhook inválido.' });
+  }
+
   const payload = req.body;
+  console.log('Webhook Mercado Pago recebido (local):', JSON.stringify(payload));
 
-  console.log('Webhook PagSeguro recebido:', JSON.stringify(payload));
+  // Responder 200 OK imediatamente para o Mercado Pago
+  res.status(200).send('OK');
 
-  return res.status(200).send('Recebido');
+  // Processar em background
+  const { type, data } = payload;
+  if (type === 'payment' || payload.topic === 'payment') {
+    const paymentId = data?.id || payload.id;
+    if (paymentId) {
+      try {
+        const client = new MercadoPagoConfig({
+          accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN,
+        });
+        const payment = new Payment(client);
+        const paymentDetails = await payment.get({ id: paymentId });
+        
+        console.log(`[Local] Status Pagamento ${paymentId}:`, paymentDetails.status);
+      } catch (error) {
+        console.error(`[Local] Erro ao buscar pagamento ${paymentId}:`, error.message);
+      }
+    }
+  }
 });
 
 app.listen(port, () => {

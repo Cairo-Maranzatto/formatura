@@ -53,6 +53,11 @@ export default function RSVP() {
         throw new Error('URL de checkout não recebida.');
       }
 
+      // Para integração Web (Sites), o redirecionamento para o init_point é o padrão do Checkout Pro.
+      // Se preferir abrir em Modal, você pode usar o preferenceId com o SDK do Mercado Pago:
+      // const mp = new window.MercadoPago(import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY);
+      // mp.checkout({ preference: { id: data.preferenceId }, autoOpen: true });
+      
       window.location.href = data.checkoutUrl;
     } catch (error) {
       setStatus({
@@ -109,7 +114,7 @@ export default function RSVP() {
             {status.error ? <p className="form-error">{status.error}</p> : null}
 
             <button type="submit" className="btn btn-submit" disabled={status.loading}>
-              {status.loading ? 'Redirecionando para o PagSeguro...' : 'Confirmar e Pagar'}
+              {status.loading ? 'Redirecionando para o Mercado Pago...' : 'Confirmar e Pagar com Mercado Pago'}
             </button>
           </form>
         </div>
