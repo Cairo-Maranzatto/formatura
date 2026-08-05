@@ -350,30 +350,79 @@ section {
 
 .info-card {
   background-color: var(--background);
-  padding: 24px;
+  padding: 32px 24px;
   border-radius: 16px;
   border-top: 4px solid var(--accent);
+  transition: transform 0.3s ease;
+}
+
+.info-card:hover {
+  transform: translateY(-5px);
+}
+
+.info-icon {
+  color: var(--accent);
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
 }
 
 .info-card h3 {
   color: var(--primary);
-  margin-bottom: 8px;
-  font-size: 1.25rem;
+  margin-bottom: 12px;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  opacity: 0.8;
 }
 
 .info-card p {
-  color: var(--muted);
-  font-size: 0.95rem;
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.5;
 }
 
-.map {
-  height: 240px;
-  background-color: var(--accent-light);
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.info-card p strong {
   color: var(--primary);
+  font-size: 1.25rem;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.map-container {
+  margin-top: 40px;
+  background-color: var(--surface);
+  padding: 10px;
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.map-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+
+.btn-outline {
+  background-color: transparent;
+  border: 2px solid var(--accent);
+  color: var(--primary);
+  padding: 10px 24px;
+  font-size: 0.9rem;
+}
+
+.btn-outline:hover {
+  background-color: var(--accent);
+  color: #fff;
+}
+
+@media (max-width: 600px) {
+  .map-actions {
+    flex-direction: column;
+    padding: 0 20px;
+  }
 }
 
 /* Footer */
